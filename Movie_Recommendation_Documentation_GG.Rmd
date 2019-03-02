@@ -1,0 +1,112 @@
+---
+title: "Movie Recommendation"
+author: "Gaurav"
+date: "1 March 2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+[**_GitHub_**](https://github.com/gghorpad/Movie_Recommendation.git)
+
+###Introduction
+
+This project involves the prediction of movie ratings for different users.  
+The dataset is given in the HarvardX Data Science Capstone Project.
+
+The data is partitioned into a training set with ~9million entries and 100k validation entries.
+
+Each entry in the dataset is a rating given by a user. It contains the movie title, the userId, movie Id,the genres in that movie and rating given by user.
+
+The problem statement is effectively a table with movieId on x axis, userId on y axis and ratings in the cells. The table is sparesely filled and the challenge is to fill the blanks. The table is also large.
+
+My solution to the project is a model based approach.
+
+>Rating = Mu + b_i + b_u + b_g  
+where   
+Mu = Average Rating for all Movies  
+b_i = Movie Effect  
+b_u = User Effect(Overall)  
+b_g = User Genre Effect  
+
+This model is based on data visualization which indicates that some movies are better than others, some users are more generous with their ratings than others and each user has their own preference for different genres.
+
+###Data Visualization
+
+I illustrate the intuition for the model with some examples below.  
+
+
+```{r DataViz1, echo=FALSE,warning=FALSE,message=FALSE}
+library(tidyverse)
+load("Movie_Prediction_GG")
+#Data Visualisation
+edx%>%ggplot()+geom_histogram(aes(rating),binwidth = 0.5)+ggtitle("Disribution of Ratings")
+#We see that movies are likely to be rated somewhere in the middle than extremes
+#We see that increment of 0.5 is less likely to be rated
+```
+
+We can see the overall disribution of movies and that movies are generally rated 4 or 3.
+We see that users are more likely to give round numbers in ratings.
+
+```{r DataViz2, echo=FALSE,warning=FALSE}
+set.seed(10)
+random_viz<-edx[sample(edx$movieId,8),"movieId"]
+edx%>%filter(movieId%in%random_viz)%>%group_by(movieId)%>%summarize(avg_rating=mean(rating),stddev=sd(rating),Title=first(title))%>%ggplot(aes(x=Title,y=avg_rating,ymin=avg_rating-stddev,ymax=avg_rating+stddev))+geom_col(fill="orange")+geom_errorbar()+ theme(axis.text.x = element_text(angle = 45, hjust = 1))+ggtitle("Average Ratings vs Movies")
+#Some movies are rated higher than others
+```
+
+From a random sampling of movies, we can see that some movies are rated higher than others. This makes sense because some movies are better than others.
+
+```{r DataViz3, echo=FALSE,warning=FALSE}
+set.seed(19)
+random_viz<-edx[sample(edx$userId,8),"userId"]
+edx%>%filter(userId%in%random_viz)%>%group_by(userId)%>%summarize(avg_rating=mean(rating),stddev=sd(rating))%>%ggplot(aes(x=userId,y=avg_rating,ymin=avg_rating-stddev,ymax=avg_rating+stddev))+geom_col(fill="orange")+geom_errorbar()+ theme(axis.text.x = element_text(angle = 45, hjust = 1))+ggtitle("Average Ratings vs Users")
+#Some users are more generous than others in rating movies
+```
+
+From a random sampling of users, we can see that some users are more generous than others in rating movies.
+
+```{r DataViz4, echo=FALSE,warning=FALSE}
+su<-edx%>%filter(userId==5)
+#Extract data for single user(su) with many views
+
+#Summarise data for this user
+graph<-data.frame(su%>%filter(str_detect(genres,"Action"))%>%summarise(Avg=mean(rating),stddev=sd(rating),ymin=Avg-stddev,ymax=Avg+stddev,genre="Action"))
+graph[2,]<-data.frame(su%>%filter(str_detect(genres,"Drama"))%>%summarise(Avg=mean(rating),stddev=sd(rating),ymin=Avg-stddev,ymax=Avg+stddev,genre="Drama"))
+graph[3,]<-data.frame(su%>%filter(str_detect(genres,"Crime"))%>%summarise(Avg=mean(rating),stddev=sd(rating),ymin=Avg-stddev,ymax=Avg+stddev,genre="Crime"))
+graph[4,]<-data.frame(su%>%filter(str_detect(genres,"Adventure"))%>%summarise(Avg=mean(rating),stddev=sd(rating),ymin=Avg-stddev,ymax=Avg+stddev,genre="Adventure"))
+graph[5,]<-data.frame(su%>%summarise(Avg=mean(rating),stddev=sd(rating),ymin=Avg-stddev,ymax=Avg+stddev,genre="Overall"))
+
+#Visualise graph for some genres
+graph%>%ggplot(aes(x=genre,y=Avg,ymin=ymin,ymax=ymax))+geom_col()+geom_errorbar()+ggtitle("UserId 5: Average Rating vs Genre")
+
+```
+
+We take an example of a user with many entries in the dataset. From this we can see that users may have a preference for certain genres.
+
+This motivates our model.
+
+###Data Analysis and Results
+
+The model is based on the belief that the simplest and good guess in each case is simply the mean for that condition.
+
+Without any information about the user or Movie, the best guess is therefore the overall Mean. The **RMSE = 1.061** if we predict the Overall mean
+
+If we account for the Movie Effect, a good approximation is simply the average rating for that Movie by all users. The **RMSE = 0.9439** for this model.
+
+We we account for the user bias, a good approximation is the average of the difference between the rating for a movie by that user and the rating by all other users.
+The **RMSE = 0.8653** for this model.
+
+To account for the genre preference, a good approximation is to estimate the average of the difference between the rating for a movie in that genre and the ratings by that user for all other movies. 
+
+Each movie has multiple genres and the combined effect of all genres is expected to be the average of all genre effects for the genres that are relevant to that movie.
+The **RMSE = 0.8497** for this model.
+
+#Conclusion
+
+Our Model has improved with every layer of complexity. This indicates that our intuition was good. Our RMSE compares favorably with the winners of the Netflix challenge.
+
+
