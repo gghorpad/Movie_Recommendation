@@ -122,7 +122,7 @@ temp_genres_list<-melt(str_split(sample1$genres,"[|]"))
 genres_list<-unique(temp_genres_list[,1])
 
 #Add User Specific Genre Effect
-load("C:/R_projects/Move_recommendation/genres_list")
+#load("C:/R_projects/Move_recommendation/genres_list")
 edx2<-edx%>%left_join(movie_avgs,by='movieId')%>%left_join(user_avgs,by='userId')                                                                                                                                         
 edx2[is.na(edx2)]<-0
 validation2<-validation1%>%mutate(numerator=0,denominator=0)
